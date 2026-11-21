@@ -1,20 +1,36 @@
 import { auth } from "@/firebase-config";
+import Constants, { AppOwnership } from "expo-constants";
 import * as Google from "expo-auth-session/providers/google";
 import * as WebBrowser from "expo-web-browser";
 import { GoogleAuthProvider, signInWithCredential } from "firebase/auth";
+import { Platform } from "react-native";
 import { useEffect, useState } from "react";
 
 // Necessário para o popup/browser de login fechar e devolver o resultado pro app.
 WebBrowser.maybeCompleteAuthSession();
 
 export function useGoogleAuth() {
-  // `request` só fica pronto depois que o clientId é carregado; `response` é o
-  // resultado do login (sucesso, erro ou cancelado) depois que o usuário interage.
+  // O Google exige um cliente OAuth específico para cada plataforma.
+  const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+  const androidClientId = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID;
+  const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
+  const clientIdDaPlataforma =
+    Platform.OS === "android"
+      ? androidClientId
+      : Platform.OS === "ios"
+        ? iosClientId
+        : webClientId;
+  const clienteAusente = !clientIdDaPlataforma;
+  const usandoExpoGo =
+    Platform.OS !== "web" && Constants.appOwnership === AppOwnership.Expo;
+
+  // O Expo Go usa um esquema reservado que o Google não aceita com cliente Web.
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    // Mesmo client ID pra web/Android/iOS por enquanto (webClientId funciona nos 3
-    // no Expo Go/web; se um dia gerar build nativa, aí sim precisa de
-    // iosClientId/androidClientId próprios cadastrados no Google Cloud).
-    clientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    webClientId,
+    androidClientId,
+    iosClientId,
+    // Sem ID nativo, não deixa a biblioteca reaproveitar o cliente Web.
+    clientId: clientIdDaPlataforma ?? "",
   });
 
   // Erro do próprio login com o Google (ex: usuário cancelou, client id errado).
@@ -44,5 +60,20 @@ export function useGoogleAuth() {
     }
   }, [response]);
 
-  return { request, promptAsync, error };
+  const erroConfiguracao = usandoExpoGo
+    ? "O login Google não funciona pelo Expo Go. Instale um development build do app para testar no celular."
+    : clienteAusente
+    ? Platform.OS === "android"
+      ? "No Android, o login Google precisa de um cliente OAuth Android e de um development build; não funciona pelo Expo Go."
+      : Platform.OS === "ios"
+        ? "No iPhone, o login Google precisa de um cliente OAuth iOS e de um development build."
+        : "Configure o cliente OAuth Web para entrar com Google."
+    : null;
+
+  return {
+    request,
+    promptAsync,
+    error: error ?? erroConfiguracao,
+    loginDisponivel: !!request && !clienteAusente && !usandoExpoGo,
+  };
 }

@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getApp, getApps, initializeApp } from "firebase/app";
 // @ts-ignore - tipos do firebase/auth não expõem getReactNativePersistence p/ RN, mas existe em runtime no build nativo (iOS/Android)
 import { getAuth, getReactNativePersistence, initializeAuth } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
 import { Platform } from "react-native";
 
 const firebaseConfig = {
@@ -14,12 +15,13 @@ const firebaseConfig = {
 };
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
-// Na web o bundle do firebase/auth não traz getReactNativePersistence (é só
-// pra iOS/Android), então lá usamos getAuth normal — o Firebase já persiste
-// a sessão no localStorage do navegador por padrão.
+// Na web usamos a persistência padrão do Firebase; no app nativo, mantemos a sessão no AsyncStorage.
 export const auth =
   Platform.OS === "web"
     ? getAuth(app)
     : initializeAuth(app, {
         persistence: getReactNativePersistence(AsyncStorage),
       });
+
+// O mesmo banco é compartilhado pelos serviços que gravam e leem reportes.
+export const bancoDeDados = getFirestore(app);

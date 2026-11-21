@@ -1,29 +1,43 @@
 import { Coordenadas } from "@/context/cidade-context";
-import { Ocorrencia } from "@/types/ocorrencia";
+import { bancoDeDados } from "@/firebase-config";
+import { Ocorrencia, StatusOcorrencia } from "@/types/ocorrencia";
+import { collection, getDocs, limit, orderBy, query, where } from "firebase/firestore";
 
-// Deslocamentos (em graus) em volta do usuário: 0.001 ≈ 110 metros.
-type OcorrenciaMock = Omit<Ocorrencia, "latitude" | "longitude"> & { dLat: number; dLng: number };
+/** Busca os últimos 50 reportes gerais ou os reportes de uma pessoa autenticada. */
+export async function buscarOcorrencias(
+  _centro: Coordenadas,
+  idNotificante?: string | null,
+): Promise<Ocorrencia[]> {
+  if (idNotificante === null) return [];
 
-const MOCK: OcorrenciaMock[] = [
-  { id: "1", titulo: "Buraco na avenida", status: "aberto", dLat: 0.003, dLng: 0.002 },
-  { id: "2", titulo: "Buraco em frente à escola", status: "aberto", dLat: -0.004, dLng: 0.001 },
-  { id: "3", titulo: "Asfalto afundado", status: "em_execucao", dLat: 0.001, dLng: -0.004 },
-  { id: "4", titulo: "Cratera na esquina", status: "em_execucao", dLat: -0.002, dLng: -0.003 },
-  { id: "5", titulo: "Buraco tapado", status: "resolvido", dLat: 0.005, dLng: -0.001 },
-  { id: "6", titulo: "Rua recapeada", status: "resolvido", dLat: -0.005, dLng: 0.004 },
-];
+  const referencia = collection(bancoDeDados, "ocorrencias");
+  // O mapa recebe a consulta global mais recente; a lista pode pedir só os do usuário.
+  const consulta = idNotificante
+    ? query(referencia, where("idNotificante", "==", idNotificante))
+    : query(referencia, orderBy("criadoEm", "desc"), limit(50));
+  const resultado = await getDocs(consulta);
 
-/**
- * Busca as ocorrências perto de `centro`.
- * Por enquanto são dados de mentira. Quando a API existir, troque o corpo
- * por um `fetch(`${API_URL}/occurrences`)` e mantenha o mesmo retorno:
- * as telas não precisam mudar.
- */
-export async function buscarOcorrencias(centro: Coordenadas): Promise<Ocorrencia[]> {
-  await new Promise((resolve) => setTimeout(resolve, 400)); // simula a rede
-  return MOCK.map(({ dLat, dLng, ...resto }) => ({
-    ...resto,
-    latitude: centro.latitude + dLat,
-    longitude: centro.longitude + dLng,
-  }));
+  // Convertemos os documentos do Firestore para o tipo usado pelas telas e pelo mapa.
+  const ocorrencias = resultado.docs.map((documento) => {
+    const dados = documento.data();
+    const criadoEm = dados.criadoEm?.toDate?.();
+    return {
+      id: documento.id,
+      titulo: typeof dados.titulo === "string" ? dados.titulo : "Reporte sem título",
+      descricao: typeof dados.descricao === "string" ? dados.descricao : undefined,
+      tipo: typeof dados.tipo === "string" ? dados.tipo : undefined,
+      endereco: typeof dados.endereco === "string" ? dados.endereco : undefined,
+      status: (dados.status ?? "aberto") as StatusOcorrencia,
+      latitude: Number(dados.latitude),
+      longitude: Number(dados.longitude),
+      criadoEm: criadoEm instanceof Date ? criadoEm : undefined,
+    };
+  });
+
+  if (!idNotificante) return ocorrencias;
+
+  // Ordenar no app evita exigir um índice composto entre idNotificante e criadoEm.
+  return ocorrencias
+    .sort((a, b) => (b.criadoEm?.getTime() ?? 0) - (a.criadoEm?.getTime() ?? 0))
+    .slice(0, 50);
 }

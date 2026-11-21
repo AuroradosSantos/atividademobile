@@ -15,7 +15,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { Link, router } from "expo-router";
+import { Link, router, type Href } from "expo-router";
 
 
 
@@ -25,7 +25,7 @@ export default function HomeScreen() {
   const { user } = useAuth();
   // `request` fica null até o client id carregar; `promptAsync` abre a tela/popup
   // de login do Google; `error` guarda qualquer falha do processo.
-  const { request, promptAsync, error } = useGoogleAuth();
+  const { request, promptAsync, error, loginDisponivel } = useGoogleAuth();
 
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
@@ -133,12 +133,13 @@ export default function HomeScreen() {
         style={[styles.botao, styles.botaoGoogle]}
         // Sem `request` carregado ainda não tem como abrir o login (client id
         // não pronto), então o botão fica desabilitado até esse momento.
-        disabled={!request}
+        disabled={!loginDisponivel}
         onPress={() => handleGoogleLogin()}
       >
         <GoogleLogo size={20} />
         <Text style={styles.textoBotaoGoogle}>Entrar com o Google</Text>
       </TouchableOpacity>
+      {error && <Text style={styles.erro}>{error}</Text>}
       <Text style={styles.rodape}>
         Ao continuar, você concorda com os Termos e a Política de Privacidade
         (LGPD).
@@ -153,6 +154,11 @@ export default function HomeScreen() {
       >
         <TouchableOpacity activeOpacity={0.8}>
           <Text style={styles.mapaSemLogin}>Ver mapa sem login {">"}</Text>
+        </TouchableOpacity>
+      </Link>
+      <Link href={"/contador" as Href} asChild>
+        <TouchableOpacity activeOpacity={0.8}>
+          <Text style={styles.mapaSemLogin}>Abrir contador</Text>
         </TouchableOpacity>
       </Link>
     </SafeAreaView>
@@ -276,3 +282,4 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
 });
+

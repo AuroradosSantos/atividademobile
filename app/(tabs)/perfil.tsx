@@ -1,7 +1,7 @@
 import { useAuth, useSair } from "@/hooks/use-auth";
 import { cores } from "@/styles";
 import { Image } from 'expo-image';
-import { Link } from "expo-router";
+import { Link, type Href } from "expo-router";
 import { Pressable, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -14,8 +14,6 @@ export default function Perfil() {
   // Desloga, limpa o histórico de navegação e vai para o index.
   const handleSair = useSair();
 
-  const perfil = user ? user : 'sem informação disponivel';
-
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.status}>
@@ -24,21 +22,21 @@ export default function Perfil() {
             <Text style={[styles.statusTexto, { color: cores.verde }]}>
               Você está logado
             </Text>
-            <Text style={styles.titulo}>User: {perfil.displayName}</Text>
-            <Text style={styles.titulo}>Email: {perfil.email}</Text>
+            <Text style={styles.titulo}>User: {user?.displayName ?? "Sem nome"}</Text>
+            <Text style={styles.titulo}>Email: {user?.email ?? ""}</Text>
             
             <Image
               style={styles.image}
-              source={{ uri: perfil.photoURL }}
+              source={user?.photoURL ? { uri: user.photoURL } : undefined}
              // placeholder={{ blurhash }}
               contentFit="cover"
               transition={1000}
             />
 
-            <Text style={styles.titulo}>Aqui vai o mapa</Text>
-            <Link href="/perfil" asChild>
+            <Text style={styles.titulo}>Acompanhe os reportes da cidade</Text>
+            <Link href={"/lista-de-reportes" as Href} asChild>
               <Pressable>
-                <Text style={styles.link}>Perfil do usuário</Text>
+                <Text style={styles.link}>Ver reportes</Text>
               </Pressable>
             </Link>
 
@@ -113,3 +111,4 @@ const styles = StyleSheet.create({
     backgroundColor: '#0553',
   },
 });
+

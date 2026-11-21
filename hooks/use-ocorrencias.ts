@@ -1,27 +1,46 @@
 import { Coordenadas } from "@/context/cidade-context";
 import { buscarOcorrencias } from "@/services/ocorrencias";
 import { Ocorrencia } from "@/types/ocorrencia";
-import { useEffect, useState } from "react";
+import { useFocusEffect } from "expo-router";
+import { useCallback, useRef, useState } from "react";
 
-/** Carrega as ocorrências perto das coordenadas dadas. */
-export function useOcorrencias(coordenadas: Coordenadas | null) {
+/** Recarrega ao entrar na tela ou ao voltar para ela depois de criar um reporte. */
+export function useOcorrencias(
+  coordenadas: Coordenadas | null,
+  idNotificante?: string | null,
+) {
   const [ocorrencias, setOcorrencias] = useState<Ocorrencia[]>([]);
   const [carregando, setCarregando] = useState(false);
+  const telaAtiva = useRef(false);
 
-  useEffect(() => {
+  const atualizar = useCallback(async () => {
     if (!coordenadas) {
-      setOcorrencias([]);
+      if (telaAtiva.current) {
+        setOcorrencias([]);
+        setCarregando(false);
+      }
       return;
     }
-    let ativo = true; // evita atualizar o estado depois que a tela mudou
-    setCarregando(true);
-    buscarOcorrencias(coordenadas)
-      .then((lista) => ativo && setOcorrencias(lista))
-      .finally(() => ativo && setCarregando(false));
-    return () => {
-      ativo = false;
-    };
-  }, [coordenadas]);
+    if (telaAtiva.current) setCarregando(true);
+    try {
+      const lista = await buscarOcorrencias(coordenadas, idNotificante);
+      if (telaAtiva.current) setOcorrencias(lista);
+    } catch (erro) {
+      console.warn("Falha ao carregar reportes", erro);
+    } finally {
+      if (telaAtiva.current) setCarregando(false);
+    }
+  }, [coordenadas, idNotificante]);
 
-  return { ocorrencias, carregando };
+  useFocusEffect(
+    useCallback(() => {
+      telaAtiva.current = true;
+      void atualizar();
+      return () => {
+        telaAtiva.current = false;
+      };
+    }, [atualizar]),
+  );
+
+  return { ocorrencias, carregando, atualizar };
 }

@@ -12,8 +12,6 @@ export default function Notificacoes() {
 
   const { user, isLogin: estaLogado } = useAuth();
 
-  const perfil = user ? user : 'sem informação disponivel';
-
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.status}>
@@ -22,12 +20,12 @@ export default function Notificacoes() {
             <Text style={[styles.statusTexto, { color: cores.verde }]}>
               Você está logado
             </Text>
-            <Text style={styles.titulo}>User: {perfil.displayName}</Text>
-            <Text style={styles.titulo}>Email: {perfil.email}</Text>
+            <Text style={styles.titulo}>User: {user?.displayName ?? "Sem nome"}</Text>
+            <Text style={styles.titulo}>Email: {user?.email ?? ""}</Text>
             
             <Image
               style={styles.image}
-              source={{ uri: perfil.photoURL }}
+              source={user?.photoURL ? { uri: user.photoURL } : undefined}
              // placeholder={{ blurhash }}
               contentFit="cover"
               transition={1000}
